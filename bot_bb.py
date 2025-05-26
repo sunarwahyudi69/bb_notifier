@@ -36,34 +36,22 @@ def calculate_bb(data, period=20, dev=2):
     closes = [float(item['close']) for item in data]
     if len(closes) < period:
         return None, None, None
-    ma = sum(closes[-period:]) / period
-    std = (sum((x - ma) ** 2 for x in closes[-period:]) / period) ** 0.5
+    ma = sum(closes[-period-1:-1]) / period
+    std = (sum((x - ma) ** 2 for x in closes[-period-1:-1]) / period) ** 0.5
     upper = ma + dev * std
     lower = ma - dev * std
-    return closes[-2], upper, lower  # gunakan candle sebelumnya ([-2])
+    return closes[-2], upper, lower
 
 last_checked = None
 
 while True:
     candles = get_candle_data()
     if len(candles) < 2:
-        print("Data candle kurang")
         time.sleep(60)
         continue
 
-    # Ambil waktu candle sebelumnya
     candle = candles[-2]
     candle_time_str = candle['datetime']
-    candle_time = datetime.strptime(candle_time_str, '%Y-%m-%d %H:%M:%S')
-    candle_time = pytz.utc.localize(candle_time)
-
-    now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
-
-    # Validasi waktu: hanya kirim jika candle sudah close
-    if now_utc <= candle_time:
-        print(f"{datetime.now()} - Candle belum close")
-        time.sleep(60)
-        continue
 
     if last_checked == candle_time_str:
         print(f"{datetime.now()} - Sudah dicek")
