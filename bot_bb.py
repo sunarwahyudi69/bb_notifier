@@ -34,41 +34,52 @@ def get_candle_data():
 
 def calculate_bb(data, period=20, dev=2):
     closes = [float(item['close']) for item in data]
-    if len(closes) < period:
+    if len(closes) < period + 1:
         return None, None, None
     ma = sum(closes[-period-1:-1]) / period
     std = (sum((x - ma) ** 2 for x in closes[-period-1:-1]) / period) ** 0.5
     upper = ma + dev * std
     lower = ma - dev * std
-    return closes[-2], upper, lower
+    return closes[-2], upper, lower  # candle[-2] = last closed
 
-last_checked = None
+def main():
+    last_checked = None
 
-while True:
-    candles = get_candle_data()
-    if len(candles) < 2:
-        time.sleep(60)
-        continue
+    while True:
+        candles = get_candle_data()
+        if len(candles) < 3:
+            time.sleep(60)
+            continue
 
-    candle = candles[-2]
-    candle_time_str = candle['datetime']
+        closed_candle = candles[-2]  # candle yang sudah close
+        latest_candle = candles[-1]  # candle yang masih terbentuk
+        candle_time_str = closed_candle['datetime']
 
-    if last_checked == candle_time_str:
-        print(f"{datetime.now()} - Sudah dicek")
-    else:
-        close_price, upper_band, lower_band = calculate_bb(candles)
-        msg = None
-        if close_price > upper_band:
-            msg = f"ALERT: Close DI ATAS Upper BB\nClose: {close_price}\nUpper: {upper_band}\nTime: {candle_time_str}"
-        elif close_price < lower_band:
-            msg = f"ALERT: Close DI BAWAH Lower BB\nClose: {close_price}\nLower: {lower_band}\nTime: {candle_time_str}"
+        # Hanya cek jika candle terakhir berbeda waktu dengan closed candle
+        if closed_candle['datetime'] == latest_candle['datetime']:
+            print(f"{datetime.now()} - Candle belum close (masih sama dengan current candle)")
+            time.sleep(60)
+            continue
 
-        if msg:
-            send_alert(msg)
-            print("Dikirim:", msg)
+        if last_checked == candle_time_str:
+            print(f"{datetime.now()} - Sudah dicek")
         else:
-            print(f"{datetime.now()} - Tidak ada sinyal")
+            close_price, upper_band, lower_band = calculate_bb(candles)
+            msg = None
+            if close_price > upper_band:
+                msg = f"ALERT: Close DI ATAS Upper BB\nClose: {close_price}\nUpper: {upper_band}\nTime: {candle_time_str}"
+            elif close_price < lower_band:
+                msg = f"ALERT: Close DI BAWAH Lower BB\nClose: {close_price}\nLower: {lower_band}\nTime: {candle_time_str}"
 
-        last_checked = candle_time_str
+            if msg:
+                send_alert(msg)
+                print("Dikirim:", msg)
+            else:
+                print(f"{datetime.now()} - Tidak ada sinyal")
 
-    time.sleep(60)
+            last_checked = candle_time_str
+
+        time.sleep(60)
+
+if __name__ == "__main__":
+    main()
